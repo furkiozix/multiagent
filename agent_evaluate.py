@@ -38,6 +38,9 @@ from sklearn.metrics import zero_one_loss
 import pickle
 from sklearn.utils import shuffle
 
+from sklearn.metrics import f1_score
+
+
 #class for load dataset to the memmory
 class datasetc:
     #Varriable for trainning
@@ -97,8 +100,14 @@ class ClassifierML:
     def evaluation_for_weights(self, model, strategy):
         # model Evaluation
         # Strategy choose
+       
+       
         Y_scores = model.predict_proba(datasetc.X_test)
         Y_pred=model.predict(datasetc.X_test)
+        f1 = f1_score(datasetc.Y_test, Y_pred, average='weighted')
+        print("F1 Score:", f1)
+
+
         if strategy == 1:
             fpr, tpr, threshold = roc_curve(datasetc.Y_test, Y_scores[:, 1])
             result = auc(fpr, tpr) #AUC
@@ -190,12 +199,20 @@ class CompContNet1(FipaContractNetProtocol):
         eval_weight=dict()
         Collect_result=list()
         result_with_weight=list()
+        
+        
         i = 1
         labels = ['KNN', 'Naivebayes', 'Bagging', 'Boosting','Decision tree', 'RandomForest', 'LDA','Ensemble']
         s = np.array([], dtype=float)#summation of all prediction probabillity
+        
+
         for message in proposes:
             content = message.content
             content = pickle.loads(content)
+            
+            f1_scores = []
+            agent_names = []
+
             results = np.array(np.array(content.get('prob')))#get the result
             display_message(self.agent.aid.name,'Analyzing  {i}'.format(i=getattr(message.sender,'name')))
             # display_message(self.agent.aid.name,'Accuracy Offered: {pot}'.format(pot=power))
@@ -219,8 +236,20 @@ class CompContNet1(FipaContractNetProtocol):
             # use  probabilities for the positive outcome only
             fpr[i],tpr[i],_=roc_curve(datasetc.Y_test,results[:,1],pos_label=1) #Multiply all probability
             roc_auc[i]=auc(fpr[i],tpr[i])
+            
+            
+            
+            yhat = np.argmax(results, axis=1)
+            f1 = f1_score(datasetc.Y_test, yhat, average='weighted')
+            
+            f1_scores.append(f1)
+            agent_names.append(getattr(message.sender,'name'))
+            
+            
             # Individual model plot
-            plt.plot(fpr[i], tpr[i], label='%s (auc = %0.2f)' % (getattr(message.sender,'name'), roc_auc[i]))
+            plt.plot(fpr[i], tpr[i], label='%s (AUC = %0.2f, F1 = %0.2f)' % (getattr(message.sender, 'name'), roc_auc[i], f1))
+            
+
             plt.legend(loc='lower right')
             plt.plot([0, 1], [0, 1], linestyle='--', color='gray', linewidth=2)
             plt.xlim([-0.1, 1.1])
@@ -245,8 +274,18 @@ class CompContNet1(FipaContractNetProtocol):
 
             fpr2, tpr2, _ = roc_curve(datasetc.Y_test,Auc_all[:,1],pos_label=1) # from all model
             roc_auc2 = auc(fpr2, tpr2)# from all model
+            
+            
+            yhat_ensemble = np.argmax(Auc_all, axis=1)
+            f1_ensemble = f1_score(datasetc.Y_test, yhat_ensemble, average='weighted')
+
+
+
             # Ensemble plot
-            plt.plot(fpr2, tpr2, label='%s (auc = %0.2f)' % (labels[i-1], roc_auc2), linestyle='-.', color='red')
+            plt.plot(fpr2, tpr2, label='%s (AUC = %0.2f, F1 = %0.2f)' % ('Ensemble', roc_auc2, f1_ensemble), linestyle='-.', color='red')
+            
+            
+            
             plt.legend(loc='lower right')
             plt.plot([0, 1], [0, 1], linestyle='--', color='gray', linewidth=2)
             plt.xlim([-0.1, 1.1])
